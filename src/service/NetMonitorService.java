@@ -397,4 +397,129 @@ public class NetMonitorService {
 
     // Permet à un technicien ou administrateur de prendre en charge un incident ouvert
     public boolean prendreEnChargeIncident(String idIncident, User technicien) {
-        // Recherche l'incident par
+        // Recherche l'incident par son identifiant
+        Incident inc = rechercherIncidentParId(idIncident);
+        // Retourne false si l'incident n'existe pas
+        if (inc == null) {
+            // Indique que l'incident est introuvable
+            return false;
+        // Fin du test d'existence
+        }
+        // Assigne le technicien et passe l'incident à IN_PROGRESS
+        inc.prendreEnCharge(technicien);
+        // Journalise la prise en charge de l'incident
+        enregistrerEvenement("Incident [" + inc.getIdentifiant() + "] pris en charge par " + technicien.getNom() + ".");
+        // Retourne true pour confirmer l'opération
+        return true;
+    // Fin de la méthode prendreEnChargeIncident
+    }
+
+    // Permet à un technicien ou administrateur de clôturer un incident résolu
+    public boolean cloturerIncident(String idIncident, User utilisateur) {
+        // Recherche l'incident par son identifiant
+        Incident inc = rechercherIncidentParId(idIncident);
+        // Retourne false si l'incident n'existe pas
+        if (inc == null) {
+            // Indique que l'incident est introuvable
+            return false;
+        // Fin du test d'existence
+        }
+        // Passe l'incident à l'état CLOSED et horodate la clôture
+        inc.cloturer();
+        // Journalise la clôture de l'incident
+        enregistrerEvenement("Incident [" + inc.getIdentifiant() + "] clôturé par " + utilisateur.getNom() + ".");
+        // Retourne true pour confirmer l'opération
+        return true;
+    // Fin de la méthode cloturerIncident
+    }
+
+    // Recherche un incident par son identifiant unique (insensible à la casse)
+    public Incident rechercherIncidentParId(String idIncident) {
+        // Retourne null si l'identifiant est vide
+        if (idIncident == null) {
+            // Renvoie null
+            return null;
+        // Fin du test de nullité
+        }
+        // Parcourt la liste des incidents
+        for (Incident inc : incidents) {
+            // Compare l'identifiant sans tenir compte de la casse
+            if (inc.getIdentifiant().equalsIgnoreCase(idIncident.trim())) {
+                // Retourne l'incident trouvé
+                return inc;
+            // Fin de la comparaison
+            }
+        // Fin de la boucle
+        }
+        // Retourne null si aucun incident ne correspond
+        return null;
+    // Fin de la méthode rechercherIncidentParId
+    }
+
+    // Permet à l'administrateur de configurer les seuils d'alerte CPU, RAM, N mesures et timeout heartbeat
+    public void configurerSeuils(double seuilCpu, double seuilRam, int mesuresConsecutives, long delaiHeartbeatSec) {
+        // Vérifie que les seuils sont compris entre 1 et 100 %
+        if (seuilCpu <= 0 || seuilCpu > 100 || seuilRam <= 0 || seuilRam > 100) {
+            // Lève une exception en cas de pourcentage invalide
+            throw new IllegalArgumentException("Les seuils CPU et RAM doivent être compris entre 1 et 100 %.");
+        // Fin de la vérification des pourcentages
+        }
+        // Vérifie que le nombre de mesures et le délai sont strictement positifs
+        if (mesuresConsecutives < 1 || delaiHeartbeatSec < 1) {
+            // Lève une exception en cas de valeur négative ou nulle
+            throw new IllegalArgumentException("Le nombre de mesures et le délai heartbeat doivent être >= 1.");
+        // Fin de la vérification des délais
+        }
+        // Met à jour les quatre paramètres de supervision
+        this.seuilCpu = seuilCpu;
+        this.seuilRam = seuilRam;
+        this.mesuresConsecutivesRequises = mesuresConsecutives;
+        this.delaiHeartbeatSecondes = delaiHeartbeatSec;
+        // Journalise le changement de configuration
+        enregistrerEvenement(String.format("Seuils mis à jour : CPU > %.0f%%, RAM > %.0f%% (%d mesures), Heartbeat > %ds.",
+                seuilCpu, seuilRam, mesuresConsecutives, delaiHeartbeatSec));
+    // Fin de la méthode configurerSeuils
+    }
+
+    // Retourne la liste complète des équipements supervisés
+    public List<NetworkDevice> listerEquipements() {
+        // Renvoie une copie de la liste des équipements
+        return new ArrayList<>(equipements);
+    // Fin de la méthode listerEquipements
+    }
+
+    // Retourne la liste complète des incidents
+    public List<Incident> listerIncidents() {
+        // Renvoie une copie de la liste des incidents
+        return new ArrayList<>(incidents);
+    // Fin de la méthode listerIncidents
+    }
+
+    // Retourne le journal chronologique des événements
+    public List<Event> listerEvenements() {
+        // Renvoie une copie de la liste des événements
+        return new ArrayList<>(evenements);
+    // Fin de la méthode listerEvenements
+    }
+
+    // Calcule dynamiquement le nombre d'équipements dans un état précis (UP, WARNING, DOWN, CRITICAL)
+    public long compterEquipementsParEtat(DeviceState etat) {
+        // Utilise un stream pour compter les équipements ayant cet état
+        return equipements.stream().filter(d -> d.getEtat() == etat).count();
+    // Fin de la méthode compterEquipementsParEtat
+    }
+
+    // Calcule dynamiquement le nombre d'incidents non clôturés (OPEN ou IN_PROGRESS)
+    public long compterIncidentsActifs() {
+        // Compte tous les incidents dont l'état est différent de CLOSED
+        return incidents.stream().filter(i -> i.getEtat() != IncidentState.CLOSED).count();
+    // Fin de la méthode compterIncidentsActifs
+    }
+
+    // Getters pour afficher la configuration actuelle des seuils
+    public double getSeuilCpu() { return seuilCpu; }
+    public double getSeuilRam() { return seuilRam; }
+    public int getMesuresConsecutivesRequises() { return mesuresConsecutivesRequises; }
+    public long getDelaiHeartbeatSecondes() { return delaiHeartbeatSecondes; }
+// Fin de la classe NetMonitorService
+}
